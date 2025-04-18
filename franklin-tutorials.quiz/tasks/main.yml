@@ -1,0 +1,93 @@
+---
+- name: Déploiement de l'application Quiz Node.js sur Rocky et Ubuntu
+  hosts: all
+  become: true
+
+  vars:
+    nodejs_version: "23.x"
+    app_dir: "/opt/quiz-ansible"
+    serve_port: 3000
+    git_repo_url: "https://github.com/franklin-tutorials/quiz-ansible.git"
+
+  tasks:
+
+    - name: Vérifier la famille du système
+      debug:
+        msg: "OS détecté : {{ ansible_os_family }}"
+
+    - name: Mettre à jour les paquets pour Debian
+      apt:
+        update_cache: yes
+        upgrade: dist
+      when: ansible_os_family == "Debian"
+
+    - name: Mettre à jour les paquets pour RedHat
+      dnf:
+        name: "*"
+        state: latest
+      when: ansible_os_family == "RedHat"
+
+    - name: Installer les paquets requis (Debian)
+      apt:
+        name:
+          - curl
+          - git
+          - nodejs
+          - npm
+        state: present
+      when: ansible_os_family == "Debian"
+
+    - name: Ajouter le dépôt Node.js et installer pour RedHat
+      shell: |
+        curl -fsSL https://rpm.nodesource.com/setup_{{ nodejs_version }} | bash -
+        dnf install -y nodejs git
+      when: ansible_os_family == "RedHat"
+
+    - name: Cloner l'application depuis GitHub
+      git:
+        repo: "{{ git_repo_url }}"
+        dest: "{{ app_dir }}"
+        version: HEAD
+
+    - name: Installer les dépendances npm
+      command: npm install
+      args:
+        chdir: "{{ app_dir }}"
+
+    - name: Compiler l'application (build)
+      command: npm run build
+      args:
+        chdir: "{{ app_dir }}"
+
+    - name: Installer le serveur statique "serve"
+      npm:
+        name: serve
+        global: yes
+        state: present
+
+    - name: Vérifier si le port {{ serve_port }} est utilisé
+      shell: "ss -tulpn | grep :{{ serve_port }}"
+      register: port_check
+      ignore_errors: true
+
+    - name: Définir un autre port si {{ serve_port }} est occupé
+      set_fact:
+        serve_port: "{{ item }}"
+      when: port_check.rc == 0
+      with_sequence: start=3001 end=3010
+      until: >
+        lookup('ansible.builtin.pipe', 'ss -tulpn | grep :{{ item }}') == ''
+      retries: 10
+      delay: 1
+
+    - name: Lancer l'application sur le port {{ serve_port }}
+      shell: serve -s dist -l {{ serve_port }} -n
+      args:
+        chdir: "{{ app_dir }}"
+      async: 3600
+      poll: 0
+
+    - name: Afficher l'URL de l'application
+      debug:
+        msg: "Application lancée sur http://{{ inventory_hostname }}:{{ serve_port }}"
+
