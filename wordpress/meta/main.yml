@@ -1,22 +1,21 @@
-#SPDX-License-Identifier: MIT-0
+---
 galaxy_info:
-  role_name: quiz
-  author: ftutorials 
-  description: Déploie une application Quiz-Ansible
-
+  role_name: ansible_role-rifaaz
+  author: RifaazS27
+  description: Rôle Ansible pour installer WordPress
   license: MIT
-
-  min_ansible_version: 2.11
-
+  min_ansible_version: 2.9
   platforms:
-   - name: Rocky Linux
-     versions:
-       - 8
-       - 9
-
-  galaxy_tags: 
-    - quiz
-    - application
-    - rocky
-
+    - name: EL
+      versions:
+        - 8
+    - name: Debian
+      versions:
+        - buster
+        - bullseye
+  galaxy_tags:
+    - wordpress
+    - apache
+    - php
+    - mariadb
 dependencies: []
