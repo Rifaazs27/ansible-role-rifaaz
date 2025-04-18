@@ -1,8 +1,4 @@
 ---
-- name: Installer et configurer WordPress
-  hosts: all
-  become: yes
-  tasks:
 
     # Installer les paquets requis (Ubuntu ou Rocky)
     - name: Installer les paquets requis
