@@ -5,6 +5,7 @@ wordpress_web_root: "/var/www/html"
 
 mysql_root_password: "root"
 wordpress_db_name: "wordpress"
+<<<<<<< HEAD
 wordpress_db_user: "user"
 wordpress_db_password: "user"
 
@@ -36,3 +37,14 @@ wordpress_services:
 apache_service: "{{ 'apache2' if ansible_os_family == 'Debian' else 'httpd' }}"
 
 mariadb_service: mariadb
+=======
+wordpress_db_user: "example"
+wordpress_db_password: "examplePW"
+wordpress_db_host: "localhost"
+apache_user: "www-data"
+apache_group: "www-data"
+
+# defaults/main.yaml
+apache_conf_path: /etc/apache2/sites-available
+apache_service: "{{ 'apache2' if ansible_facts['os_family'] == 'Debian' else 'httpd' }}"
+>>>>>>> 3fb4136 (merge)
