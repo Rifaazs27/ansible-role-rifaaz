@@ -1,9 +1,14 @@
 <<<<<<< HEAD
+<<<<<<< HEAD
 mysql_root_password: "root"
 wordpress_db_name: "wordpress"
 wordpress_db_user: "root"
 wordpress_db_password: "wordpress"
 wordpress_web_root: "/var/www/html"
+=======
+# vars/main.yml
+apache_conf_path: "{{ '/etc/apache2/sites-available' if ansible_facts['os_family'] == 'Debian' else '/etc/httpd/conf.d' }}"
+>>>>>>> 3fb4136 (merge)
 =======
 # vars/main.yml
 apache_conf_path: "{{ '/etc/apache2/sites-available' if ansible_facts['os_family'] == 'Debian' else '/etc/httpd/conf.d' }}"
