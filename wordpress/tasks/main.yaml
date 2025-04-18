@@ -1,163 +1,55 @@
----
-# Installation des paquets selon l'OS
-- name: Installation des paquets (Debian/Ubuntu)
-  apt:
-    name:
-      - apache2
-      - php
-      - libapache2-mod-php
-      - php-mysql
-      - mariadb-server
-      - wget
-      - unzip
-    update_cache: yes
-  when: ansible_os_family == 'Debian'
-
-- name: Installation des paquets (Rocky Linux/CentOS)
-  dnf:
-    name:
-      - httpd
-      - php
-      - php-mysqlnd
-      - mariadb-server
-      - wget
-      - unzip
-    update_cache: yes
-  when: ansible_os_family == 'RedHat'
-
-# Suppression page index par défaut
-- name: Suppression de la page par défaut Apache
-  file:
-    path: /var/www/html/index.html
-    state: absent
-
-# Activation module rewrite (Debian)
-- name: Activation du module rewrite pour Apache
-  command: a2enmod rewrite
-  args:
-    creates: /etc/apache2/mods-enabled/rewrite.load
-  when: ansible_os_family == 'Debian'
-  notify: Reload Apache
-
-# Création VirtualHost
-- name: Création du fichier de configuration Apache pour WordPress
-  template:
-    src: wordpress.conf.j2
-    dest: "{{ apache_conf_path }}/wordpress.conf"
-  notify: Reload Apache
-
-# Activation site WordPress (Debian)
-- name: Activation du site WordPress (équivalent a2ensite)
-  file:
-    src: /etc/apache2/sites-available/wordpress.conf
-    dest: /etc/apache2/sites-enabled/wordpress.conf
-    state: link
-    force: yes
-  when: ansible_os_family == 'Debian'
-  notify: Reload Apache
-
-# Redémarrage ou lancement d’Apache
-- name: Démarrage Apache (Debian)
-  service:
-    name: apache2
-    state: started
-  when: ansible_os_family == 'Debian'
-
-- name: Démarrage Apache (Rocky)
-  service:
-    name: httpd
-    state: started
-  when: ansible_os_family == 'RedHat'
-
-# Démarrage MariaDB sans systemd (conteneurs)
-- name: Recherche du binaire mysqld
-  shell: which mysqld
-  register: mysqld_path
-  changed_when: false
-  ignore_errors: true
-
-- name: Démarrage MariaDB manuellement (sans systemd)
-  command: "{{ mysqld_path.stdout }} --datadir=/var/lib/mysql &"
-  async: 5
-  poll: 0
-  when: mysqld_path.stdout != ""
-  ignore_errors: true
-
-- name: Pause pour démarrage MariaDB
-  pause:
-    seconds: 10
-
-# Sécurisation MariaDB
-- name: Sécurisation de MariaDB - changement mot de passe root
-  mysql_user:
-    login_user: root
-    login_password: ''
-    name: root
-    host: localhost
-    password: "{{ mysql_root_password }}"
-    check_implicit_admin: yes
-
-- name: Suppression des utilisateurs anonymes
-  mysql_user:
-    name: ''
-    host_all: true
-    state: absent
-    login_user: root
-    login_password: "{{ mysql_root_password }}"
-    check_implicit_admin: yes
-
-- name: Suppression de la base test
-  mysql_db:
-    name: test
-    state: absent
-    login_user: root
-    login_password: "{{ mysql_root_password }}"
-    check_implicit_admin: yes
-
-# Création BDD WordPress + utilisateur
-- name: Création de la base de données WordPress
-  mysql_db:
-    name: "{{ db_name }}"
+- name: Installer les paquets requis
+  package:
+    name: "{{ item }}"
     state: present
-    login_user: root
-    login_password: "{{ mysql_root_password }}"
+  loop: "{{ wordpress_packages[ansible_os_family] }}"
 
-- name: Création de l'utilisateur WordPress
-  mysql_user:
-    name: "{{ db_user }}"
-    password: "{{ db_password }}"
-    priv: "{{ db_name }}.*:ALL"
-    host: localhost
-    state: present
-    login_user: root
-    login_password: "{{ mysql_root_password }}"
 
-# Téléchargement et installation WordPress
-- name: Téléchargement de WordPress
+- name: Activer et démarrer Apache et MariaDB
+  service:
+    name: "{{ item }}"
+    state: started
+    enabled: true
+  loop: "{{ wordpress_services[ansible_os_family] }}"
+
+
+- name: Copy WordPress files
+  unarchive:
+    src: "{{ wordpress_url }}"
+    dest: "{{ wordpress_web_root }}"
+    remote_src: yes
+  notify: Restart web server
+
+
+- name: Créer le répertoire web root si absent
+  file:
+    path: "{{ wordpress_web_root }}"
+    state: directory
+    owner: www-data
+    group: www-data
+    mode: '0755'
+
+- name: Télécharger WordPress
   get_url:
-    url: https://wordpress.org/latest.zip
+    url: "{{ wordpress_url }}"
     dest: /tmp/latest.zip
 
-- name: Décompression de WordPress
+- name: Extraire WordPress
   unarchive:
     src: /tmp/latest.zip
     dest: /tmp/
     remote_src: yes
 
-- name: Copie des fichiers WordPress
+- name: Copier les fichiers WordPress
   copy:
     src: /tmp/wordpress/
-    dest: /var/www/html/
+    dest: "{{ wordpress_web_root }}/"
     owner: www-data
     group: www-data
     mode: '0755'
     remote_src: yes
 
-# wp-config.php
-- name: Création du fichier wp-config.php
-  template:
-    src: wp-config.php.j2
-    dest: /var/www/html/wp-config.php
-    owner: www-data
-    group: www-data
-    mode: '0640'
+- name: Supprimer la page par défaut d’Apache
+  file:
+    path: "{{ wordpress_web_root }}/index.html"
+    state: absent
