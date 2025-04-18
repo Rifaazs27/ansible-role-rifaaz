@@ -118,7 +118,6 @@
 - name: Création de la base de données WordPress
   mysql_db:
     name: "{{ db_name }}"
->>>>>>> 3fb4136 (merge)
     state: present
   loop: "{{ wordpress_packages[ansible_os_family] }}"
 
